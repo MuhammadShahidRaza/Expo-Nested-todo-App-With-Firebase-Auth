@@ -1,35 +1,36 @@
-import React, { useState } from "react";
+import { useState } from "react";
 import {
   View,
   Text,
   TextInput,
   TouchableOpacity,
   ScrollView,
-  Alert,
   Modal,
   StyleSheet,
   Pressable,
-  Platform,
   FlatList,
+  Dimensions,
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
-import TodoList from "./TodoList";
 import SnackBar from "react-native-snackbar-component";
+import { auth, signOut_ } from "../../firebase";
+import { AUTH_ROUTE } from "../navigation/routes";
 
-export default function Home() {
+const { height } = Dimensions.get("window");
+
+export default function Home({ navigation }) {
+  // All states
   const [modalVisible, setModalVisible] = useState(true);
   const toggleModal = () => setModalVisible(!modalVisible);
   const [addTask, setAddTask] = useState("");
   const [tasks, setTasks] = useState([]);
   const [date, setDate] = useState(new Date());
-
+  const [todo, setTodo] = useState("");
+  const [subTaskIndex, setSubTaskIndex] = useState(null);
+  const [open, setOpen] = useState(false);
   const [snackBar, setSnackBar] = useState(false);
-  function deletingTasks(index) {
-    let copyingItems = [...tasks];
-    copyingItems.splice(index, 1);
-    setTasks(copyingItems);
-  }
 
+  //task Model Object
   const TaskModel = {
     id: null,
     title: "",
@@ -37,60 +38,55 @@ export default function Home() {
     subTasks: [],
   };
 
-  function addTasks() {
-    if (addTask) {
-      const newTask = { ...TaskModel };
-      newTask.title = addTask;
-      newTask.createdAt = date.toLocaleDateString();
-      newTask.id = tasks.length ? tasks[tasks.length - 1].id + 1 : 1;
-
-      setTasks([...tasks, newTask]);
-      setAddTask("");
-      return;
-    } else {
-      setSnackBar(true);
-      setTimeout(() => {
-        setSnackBar(false);
-      }, 3000);
+  // adding tasks function
+  async function addTasks() {
+    try {
+      if (addTask) {
+        const newTask = { ...TaskModel };
+        newTask.title = addTask;
+        newTask.createdAt = date.toLocaleDateString();
+        newTask.id = tasks.length ? tasks[tasks.length - 1].id + 1 : 1;
+        setTasks([...tasks, newTask]);
+        setAddTask("");
+        return;
+      } else {
+        setSnackBar(true);
+        setTimeout(() => {
+          setSnackBar(false);
+        }, 3000);
+      }
+    } catch (error) {
+      console.log(error.message);
     }
   }
+  // deleting tasks function
+  function deletingTasks(index) {
+    let copyingItems = [...tasks];
+    copyingItems.splice(index, 1);
+    setTasks(copyingItems);
+  }
 
-  // todolis wala
-
-  const [todo, setTodo] = useState("");
-  const [subTaskIndex, setSubTaskIndex] = useState(null);
-
-  const [open, setOpen] = useState(false);
-
-  // const [subtasks, setSubtasks] = useState([]);
-
+  //sub task model
   const SubTaskModel = {
     id: null,
     title: "",
     createdAt: "",
   };
 
+  // add sub task function
   function addSubTask(subindex) {
-    let selectedTask = tasks.filter(
-      (task) =>
-        // console.log(subindex)
-        task.id === subindex
-    );
-    // console.log(selectedTask);
+    let selectedTask = tasks.filter((task) => task.id === subindex);
     if (todo) {
       const newSubTask = { ...SubTaskModel };
-
       newSubTask.title = todo;
       newSubTask.createdAt = date.toLocaleDateString();
       newSubTask.id = selectedTask[0].subTasks.length
         ? selectedTask[0].subTasks[selectedTask[0].subTasks.length - 1].id + 1
         : 1;
-
       selectedTask[0].subTasks = [...selectedTask[0].subTasks, newSubTask];
       // newSubTask.id = subindex
       // selectedTask[0].subtasks = [{...selectedTask[0].subtasks, newSubTask}];
       setTasks([...tasks]);
-
       setTodo("");
     } else {
       setSnackBar(true);
@@ -100,27 +96,72 @@ export default function Home() {
     }
   }
 
-  function deletingSubTasks(subindex) {
-    // console.log(subindex + " sub");
-    let selectedTask = tasks.filter((task) => task.id === subTaskIndex + 1);
-    // let copyingItems = [...selectedTask ];
-    // console.log(copyingItems);
-    // copyingItems.splice(subindex , 1); ;
-    // setSubtasks(copyingItems);
-  }
-  // function deletingTasks(index) {
-  //   let copyingItems = [...tasks];
-  //   copyingItems.splice(index, 1);
-  //   setTasks(copyingItems);
+  //deleting sub task function
+
+  // function deletingSubTasks(subindex) {
+  //   let selectedTask = tasks.filter((task) => task.id === subTaskIndex + 1);
+  //   let copyingItems = [...selectedTask];
+  //   copyingItems[0].subTasks.splice(subindex, 1);
   // }
-  // console.log(tasks);
+
+  //saving arrays to firestore
+
+  // useEffect(() => {
+  //   const q = query(collection_(db, "todos"));
+
+  //   const unsub = onSnapshot(q, (querySnapshot) => {
+  //     let todosArray = [];
+  //     querySnapshot.forEach((doc) => {
+  //       todosArray.push({ ...doc.data(), id: doc.id });
+  //     });
+  //     setTasks(todosArray);
+  //   });
+  //   return () => unsub();
+  // }, []);
+
+  function logout() {
+    signOut_(auth)
+      .then(() => {
+        navigation.navigate(AUTH_ROUTE);
+      })
+      .catch((error) => {
+        console.log(error.message);
+      });
+  }
 
   return (
-    <SafeAreaView style={{ backgroundColor: "#956f4b", height: "100%" }}>
+    <SafeAreaView style={{ backgroundColor: "#543c27", height: "100%" }}>
       <View style={{ marginTop: 30, marginHorizontal: 25 }}>
         <ScrollView>
-          <View style={{ marginVertical: 10 }}>
-            <Text style={{ fontSize: 20 }}>Home</Text>
+          <View
+            style={{
+              marginVertical: 10,
+              display: "flex",
+              flexDirection: "row",
+              justifyContent: "flex-end",
+            }}
+          >
+            <TouchableOpacity
+              onPress={() => {
+                logout();
+              }}
+            >
+              <View
+                style={{
+                  backgroundColor: "#543c27",
+                  elevation: 20,
+                  paddingHorizontal: 15,
+                  paddingVertical: 10,
+                  marginRight: 5,
+                }}
+              >
+                <Text
+                  style={{ fontSize: 12, color: "#b3a396", fontWeight: "bold" }}
+                >
+                  Log Out
+                </Text>
+              </View>
+            </TouchableOpacity>
           </View>
           <View style={{ height: 160 }}>
             <Pressable
@@ -143,6 +184,7 @@ export default function Home() {
                     borderWidth: 2,
                     paddingHorizontal: 15,
                     paddingVertical: 15,
+                    backgroundColor: "#956f4b",
                   }}
                 >
                   <TextInput
@@ -150,7 +192,7 @@ export default function Home() {
                       setAddTask(text);
                     }}
                     value={addTask}
-                    style={{ fontSize: 18 }}
+                    style={{ fontSize: 18, color: "white" }}
                     placeholder="Add Task ..."
                   />
                 </View>
@@ -159,25 +201,12 @@ export default function Home() {
                     addTasks();
                   }}
                 >
-                  <View
-                    style={{
-                      backgroundColor: "#956f4b",
-                      marginVertical: 15,
-                      display: "flex",
-                      width: "50%",
-                      alignSelf: "flex-end",
-                      alignItems: "center",
-                      height: 40,
-                      justifyContent: "center",
-                      borderRadius: 20,
-                    }}
-                  >
+                  <View style={styles.addTask}>
                     <Text style={{ fontSize: 18, color: "white" }}>
                       Add Task
                     </Text>
                   </View>
                 </TouchableOpacity>
-
                 <Pressable
                   style={{ position: "absolute", bottom: 5, right: 10 }}
                   onPress={() => setModalVisible(!modalVisible)}
@@ -187,13 +216,10 @@ export default function Home() {
               </View>
             </Modal>
           </View>
-
           <View>
-            <View>
-              <Text>Todo List</Text>
+            <View style={{ alignItems: "center" }}>
+              <Text style={{ color: "white" }}>Todo List</Text>
             </View>
-
-            {/* <TodoList tasks={tasks} deletingTasks={deletingTasks} /> */}
 
             <View>
               <FlatList
@@ -203,24 +229,6 @@ export default function Home() {
                   return (
                     <>
                       <View style={{ marginVertical: 10 }} key={index}>
-                        <View
-                          style={{
-                            display: "flex",
-                            flexDirection: "row",
-                            alignSelf: "flex-end",
-                          }}
-                        >
-                          <TouchableOpacity>
-                            <View>
-                              <Text>Complete</Text>
-                            </View>
-                          </TouchableOpacity>
-                          <TouchableOpacity>
-                            <View>
-                              <Text>Pending</Text>
-                            </View>
-                          </TouchableOpacity>
-                        </View>
                         <View
                           style={{
                             display: "flex",
@@ -237,14 +245,15 @@ export default function Home() {
                               display: "flex",
                               flexDirection: "row",
                               alignItems: "center",
-                              backgroundColor: "yellow",
                             }}
                           >
                             <View>
-                              <Text>{item.id})</Text>
+                              <Text style={{ color: "white" }}>{item.id})</Text>
                             </View>
                             <View style={{ marginLeft: 10 }}>
-                              <Text>{item.title}</Text>
+                              <Text style={{ color: "white" }}>
+                                {item.title}
+                              </Text>
                             </View>
                           </View>
                           <TouchableOpacity
@@ -253,9 +262,13 @@ export default function Home() {
                             }}
                             style={{
                               position: "absolute",
-                              top: 5,
-                              right: 15,
-                              backgroundColor: "red",
+                              top: -10,
+                              right: 0,
+                              backgroundColor: "#956f4b",
+                              elevation: 10,
+                              borderColor: "#a94724",
+                              borderWidth: 1.5,
+
                               height: 30,
                               width: 30,
                               borderRadius: 50,
@@ -264,7 +277,7 @@ export default function Home() {
                             }}
                           >
                             <View>
-                              <Text>X</Text>
+                              <Text style={{ color: "#544434" }}>X</Text>
                             </View>
                           </TouchableOpacity>
 
@@ -275,7 +288,9 @@ export default function Home() {
                               right: 15,
                             }}
                           >
-                            <Text>{item.createdAt}</Text>
+                            <Text style={{ color: "white" }}>
+                              {item.createdAt}
+                            </Text>
                           </View>
                         </View>
                         <TouchableOpacity
@@ -287,15 +302,19 @@ export default function Home() {
                           <View
                             style={{
                               bottom: 10,
-                              backgroundColor: "red",
+                              backgroundColor: "#956f4b",
                               width: 150,
+                              elevation: 10,
                               borderRadius: 12,
+                              left: 5,
                               paddingVertical: 10,
                               alignItems: "center",
                               justifyContent: "center",
+                              borderColor: "#a94724",
+                              borderWidth: 3,
                             }}
                           >
-                            <Text>Sub Task</Text>
+                            <Text style={{ color: "#544434" }}>Sub Task</Text>
                           </View>
                         </TouchableOpacity>
 
@@ -312,10 +331,11 @@ export default function Home() {
                                       width: "88%",
                                       alignSelf: "center",
                                       borderRadius: 20,
-                                      backgroundColor: "yellow",
+                                      backgroundColor: "#785c41",
                                       marginVertical: 8,
                                       paddingHorizontal: 10,
                                       paddingVertical: 20,
+                                      elevation: 10,
                                     }}
                                   >
                                     <View
@@ -323,17 +343,21 @@ export default function Home() {
                                         display: "flex",
                                         flexDirection: "row",
                                         alignItems: "center",
-                                        backgroundColor: "yellow",
+                                        backgroundColor: "#785c41",
                                       }}
                                     >
                                       <View>
-                                        <Text>{item.id})</Text>
+                                        <Text style={{ color: "white" }}>
+                                          {item.id})
+                                        </Text>
                                       </View>
                                       <View style={{ marginLeft: 10 }}>
-                                        <Text>{item.title} </Text>
+                                        <Text style={{ color: "white" }}>
+                                          {item.title}{" "}
+                                        </Text>
                                       </View>
                                     </View>
-                                    <TouchableOpacity
+                                    {/* <TouchableOpacity
                                       onPress={() => {
                                         deletingSubTasks(index);
                                       }}
@@ -352,7 +376,7 @@ export default function Home() {
                                       <View>
                                         <Text>X</Text>
                                       </View>
-                                    </TouchableOpacity>
+                                    </TouchableOpacity> */}
                                     <View
                                       style={{
                                         position: "absolute",
@@ -360,7 +384,9 @@ export default function Home() {
                                         right: 15,
                                       }}
                                     >
-                                      <Text>{item.createdAt}</Text>
+                                      <Text style={{ color: "white" }}>
+                                        {item.createdAt}
+                                      </Text>
                                     </View>
                                   </View>
                                 );
@@ -370,13 +396,14 @@ export default function Home() {
                             <View>
                               <View
                                 style={{
-                                  borderColor: "grey",
+                                  borderColor: "#785c41",
                                   borderRadius: 12,
                                   borderWidth: 1,
                                   width: "90%",
                                   alignSelf: "center",
                                   paddingHorizontal: 15,
                                   paddingVertical: 15,
+                                  marginVertical: 15,
                                 }}
                               >
                                 <TextInput
@@ -396,7 +423,7 @@ export default function Home() {
                               >
                                 <View
                                   style={{
-                                    backgroundColor: "grey",
+                                    backgroundColor: "#544434",
                                     alignSelf: "center",
                                     borderRadius: 20,
                                     paddingVertical: 15,
@@ -404,7 +431,14 @@ export default function Home() {
                                     marginVertical: 10,
                                   }}
                                 >
-                                  <Text>Add</Text>
+                                  <Text
+                                    style={{
+                                      color: "white",
+                                      fontWeight: "bold",
+                                    }}
+                                  >
+                                    Add
+                                  </Text>
                                 </View>
                               </TouchableOpacity>
                             </View>
@@ -433,10 +467,9 @@ export default function Home() {
 const styles = StyleSheet.create({
   modalView: {
     margin: 20,
-    backgroundColor: "#a94724",
+    backgroundColor: "#382311",
     borderRadius: 20,
     padding: 35,
-    // alignItems: "center",
     shadowColor: "#000",
     shadowOffset: {
       width: 0,
@@ -444,12 +477,22 @@ const styles = StyleSheet.create({
     },
     shadowOpacity: 0.25,
     shadowRadius: 4,
-    elevation: 5,
+    elevation: 10,
   },
-
   textStyle: {
     color: "white",
     fontWeight: "bold",
     textAlign: "center",
+  },
+  addTask: {
+    backgroundColor: "#956f4b",
+    marginVertical: 15,
+    display: "flex",
+    width: "50%",
+    alignSelf: "flex-end",
+    alignItems: "center",
+    height: 40,
+    justifyContent: "center",
+    borderRadius: 20,
   },
 });
